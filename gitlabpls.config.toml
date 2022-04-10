@@ -1,0 +1,16 @@
+[app]
+gitlab.project.base.url = "https://gitlab.com/yourcompany/awesomeproject"
+gitlab.repo = "${GIT_REPO}"
+gitlab.branch = "master"
+
+[vars.build-dev]
+ENV = "dev"
+GIT_BRANCH = "feat/awesome-feature-to-be-build"
+
+[vars.deploy-dev]
+ENV = "dev"
+GIT_BRANCH = "feat/awesome-feature-to-be-deployed"
+
+[vars.build-deploy-stg]
+ENV = "staging"
+GIT_BRANCH = "${GIT_HEAD}" # current git HEAD branch
