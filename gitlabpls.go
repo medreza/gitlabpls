@@ -3,19 +3,19 @@ package main
 import (
 	"embed"
 	"fmt"
+	"log"
+	"os"
+
 	"github.com/medreza/gitlabpls/pkg/generator"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/browser"
 	"github.com/urfave/cli/v2"
-	"log"
-	"os"
 )
 
 //go:embed gitlabpls.config.toml
 var cfgRes embed.FS
 
 func main() {
-	var vars string
 	availableCmds := []string{"url", "browser"}
 	cfgBytes, _ := cfgRes.ReadFile("gitlabpls.config.toml")
 	cfg, _ := toml.LoadBytes(cfgBytes)
@@ -27,26 +27,15 @@ func main() {
 		cfg.Get("app.gitlab.branch").(string))
 
 	app := &cli.App{
-		Usage:                "GitLab, please! A CLI app to help you start new GitLab CI/CD pipeline",
+		Usage:                "GitLab, please! A CLI tool to help you run new GitLab CI/CD pipeline",
 		HideHelpCommand:      true,
 		EnableBashCompletion: true,
 		Commands: []*cli.Command{
 			{
-				Name:    "url",
-				Aliases: []string{"u"},
-				Usage:   "generate URL",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:        "vars",
-						Required:    true,
-						Usage:       "Variables group defined in the config file",
-						Destination: &vars,
-					},
-				},
-				Action: func(c *cli.Context) error {
-					doProcess(vars, varsConfig, uri, false)
-					return nil
-				},
+				Name:        "url",
+				Aliases:     []string{"u"},
+				Usage:       "generate URL",
+				Subcommands: getSubcommands(varsConfig, uri, false),
 				BashComplete: func(c *cli.Context) {
 					if c.NArg() > 0 {
 						return
@@ -57,21 +46,10 @@ func main() {
 				},
 			},
 			{
-				Name:    "browser",
-				Aliases: []string{"b"},
-				Usage:   "generate URL and open it in your browser",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:        "vars",
-						Required:    true,
-						Usage:       "Variables group defined in the config file",
-						Destination: &vars,
-					},
-				},
-				Action: func(c *cli.Context) error {
-					doProcess(vars, varsConfig, uri, true)
-					return nil
-				},
+				Name:        "browser",
+				Aliases:     []string{"b"},
+				Usage:       "generate URL and open it in your browser",
+				Subcommands: getSubcommands(varsConfig, uri, false),
 				BashComplete: func(c *cli.Context) {
 					if c.NArg() > 0 {
 						return
@@ -99,4 +77,19 @@ func doProcess(vars string, varsConfig *toml.Tree, uri *generator.Generator, sho
 	if shouldOpenBrowser {
 		_ = browser.OpenURL(generated)
 	}
+}
+
+func getSubcommands(varsConfig *toml.Tree, uri *generator.Generator, shouldOpenBrowser bool) (subCmds []*cli.Command) {
+	for _, k := range varsConfig.Keys() {
+		subCmd := &cli.Command{
+			Name:  k,
+			Usage: fmt.Sprintf("generate url with variables configured in vars.%s", k),
+			Action: func(context *cli.Context) error {
+				doProcess(k, varsConfig, uri, shouldOpenBrowser)
+				return nil
+			},
+		}
+		subCmds = append(subCmds, subCmd)
+	}
+	return subCmds
 }
