@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
 	"strings"
 )
 
@@ -12,12 +11,15 @@ type Generator struct {
 	gitlabProjectBaseURL string
 	gitlabRepo           string
 	gitlabBranch         string
+	sys                  sysWrapper
 }
 
 func New(gitlabBaseProjectURL, gitlabRepoName, gitlabBranch string) *Generator {
+	sys := &sysWrap{}
 	return &Generator{gitlabBaseProjectURL,
-		getGitlabRepo(gitlabRepoName),
-		gitlabBranch}
+		getGitlabRepo(gitlabRepoName, sys),
+		gitlabBranch,
+		sys}
 }
 
 func (g *Generator) Generate(vars map[string]interface{}) (string, error) {
@@ -28,7 +30,7 @@ func (g *Generator) Generate(vars map[string]interface{}) (string, error) {
 	}
 	for k, v := range vars {
 		key := parseVarsKey(k)
-		val, err := parseVarsValue(v.(string))
+		val, err := g.parseVarsValue(v.(string))
 		if err != nil {
 			return "", err
 		}
@@ -38,12 +40,12 @@ func (g *Generator) Generate(vars map[string]interface{}) (string, error) {
 	return uri.String(), nil
 }
 
-func getGitlabRepo(repo string) string {
-	return strings.ReplaceAll(repo, "${GIT_REPO}", getGitRepoDir())
+func getGitlabRepo(repo string, sys sysWrapper) string {
+	return strings.ReplaceAll(repo, "${GIT_REPO}", getGitRepoDir(sys))
 }
 
-func getGitRepoDir() string {
-	getwd, _ := os.Getwd()
+func getGitRepoDir(sys sysWrapper) string {
+	getwd, _ := sys.osGetwd()
 	splits := strings.Split(getwd, string(os.PathSeparator))
 	return splits[len(splits)-1]
 }
@@ -52,20 +54,20 @@ func parseVarsKey(key string) string {
 	return fmt.Sprintf("var[%s]", key)
 }
 
-func parseVarsValue(val string) (string, error) {
-	head, err := getGitHead()
+func (g *Generator) parseVarsValue(val string) (string, error) {
+	head, err := g.getGitHead()
 	if err != nil {
 		return "", err
 	}
 	return strings.ReplaceAll(val, "${GIT_HEAD}", head), nil
 }
 
-func getGitHead() (string, error) {
-	gitDir, err := exec.Command("git", "rev-parse --git-dir").Output()
+func (g *Generator) getGitHead() (string, error) {
+	gitDir, err := g.sys.execCommand("git", "rev-parse --git-dir")
 	if err != nil {
 		gitDir = []byte(".git")
 	}
-	f, err := os.ReadFile(string(gitDir) + "/HEAD")
+	f, err := g.sys.osReadFile(string(gitDir) + "/HEAD")
 	if err != nil {
 		return "", err
 	}
