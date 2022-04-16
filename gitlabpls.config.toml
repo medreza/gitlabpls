@@ -1,6 +1,6 @@
 [app]
 gitlab.project.base.url = "https://gitlab.com/yourcompany/awesomeproject"
-gitlab.repo = "${GIT_REPO}"
+gitlab.repo = "${GIT_REPO}" # tip: to take advantage of it, it's recommended to have your project folder name equals GitLab repo name
 gitlab.branch = "master"
 
 [vars.build-dev]
